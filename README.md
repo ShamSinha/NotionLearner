@@ -56,8 +56,8 @@ NOTION_DATABASE_ID=your_notion_database_id
 API_SECRET=choose-a-private-local-secret
 ```
 
-Connect the Notion integration to your Learning Queue database before starting the
-backend. Keep `.env` private—it is ignored by Git and must not be committed.
+Complete the Notion connection and database setup below before starting the backend.
+Keep `.env` private—it is ignored by Git and must not be committed.
 
 ## Set up the Chrome extension
 
@@ -107,9 +107,127 @@ check `http://localhost:8000/health` and confirm the Backend URL and API Secret 
 | Add as Research Paper | Paper schema (method/loss/results/…) |
 | Add ALL open tabs | Batch categorize |
 
-## Notion DB
+## Set up the Notion connection and database
 
-Use the CSV in `notion/Learning_Queue_import.csv`, connect your integration, set `NOTION_API_KEY` + `NOTION_DATABASE_ID`.
+### 1. Create an internal Notion connection
+
+1. Open Notion's [Internal connections guide](https://developers.notion.com/guides/get-started/internal-connections)
+   and navigate to the Developer portal.
+2. Under **Build**, select **Internal connections**, then click
+   **Create a new connection**.
+3. Name it `NotionLearner` and select the workspace that will contain the Learning
+   Queue. Notion requires a Workspace Owner to create an internal connection.
+4. In the connection's **Configuration** tab, enable these content capabilities:
+
+   - **Read content** — required to find duplicates and inspect the database schema.
+   - **Insert content** — required to create new learning pages and blocks.
+   - **Update content** — required to write AI analysis and reprocess existing pages.
+
+5. Copy the **Installation access token** and place it in `backend/.env`:
+
+   ```dotenv
+   NOTION_API_KEY=your_installation_access_token
+   ```
+
+Do not paste this token into the extension or commit it to Git. The extension's
+`API_SECRET` is a separate local password and is not your Notion token.
+
+### 2. Create the Learning Queue database
+
+The easiest option is to import the included template:
+
+1. In Notion desktop or web, open **Settings → Import → CSV**. You can also type
+   `/csv` on a page.
+2. Upload `notion/Learning_Queue_import.csv` from this repository.
+3. Choose where the new database should be created and name it `Learning Queue`.
+4. Open the resulting database as a full page.
+
+CSV import creates rows as pages and columns as properties. After importing, confirm
+these property names and types; the names are case-sensitive:
+
+| Property | Notion type |
+|---|---|
+| `Name` | Title |
+| `URL` | URL |
+| `Type` | Select |
+| `Status` | Select |
+| `Course` | Select |
+| `Subtopic` | Text |
+| `Domain` | Select |
+| `Priority` | Select |
+| `Estimated Time` | Number |
+| `AI Summary` | Text |
+| `Key Concepts` | Text |
+| `Prerequisites` | Text |
+| `Questions` | Text |
+| `ChatGPT Link` | URL |
+| `Personal Notes` | Text |
+| `Completed On` | Date |
+
+`Transcript` is optional. If you add it, make it a **Text** property; the complete
+transcript is always written into the Notion page body even when this property is absent.
+
+If you already have a Learning Queue database, you can recreate the properties above
+instead of importing the sample CSV. Notion's **Merge with CSV** operation adds rows; it
+does not update matching existing rows, so avoid importing the sample twice.
+
+### 3. Grant the connection access
+
+A new internal connection has no access to any page by default.
+
+1. Open the full-page `Learning Queue` database.
+2. Click the `•••` menu in the top-right corner.
+3. Select **Connections → Add connection**.
+4. Search for `NotionLearner`, select it, and confirm access.
+
+Alternatively, open the connection's **Content access** tab in the Developer portal,
+click **Edit access**, and select the Learning Queue database. Without this step, the
+Notion API normally returns an `object_not_found` or permission error.
+
+### 4. Find the Notion database ID
+
+1. Open `Learning Queue` as a full-page database—not merely a linked view.
+2. Click **Share → Copy link**.
+3. Paste the URL into a text editor. It will look similar to:
+
+   ```text
+   https://www.notion.so/my-workspace/248104cd477e80fdb757e945d38000bd?v=148104cd477e80bb928f000ce197ddf2
+   ```
+
+4. The database ID is the 32-character value immediately before `?v=`:
+
+   ```text
+   248104cd477e80fdb757e945d38000bd
+   ```
+
+   Notion may also display it as a 36-character UUID containing hyphens. Either form is
+   accepted. Do **not** use the value after `?v=`; that is the database view ID.
+
+5. Add the database ID to `backend/.env`:
+
+   ```dotenv
+   NOTION_DATABASE_ID=248104cd477e80fdb757e945d38000bd
+   ```
+
+NotionLearner resolves the database's first data source automatically, so configure the
+Learning Queue as the database's first or only data source.
+
+### 5. Verify the Notion connection
+
+From the repository root, run this read-only check:
+
+```bash
+cd backend
+source .venv/bin/activate
+python -c "from services.notion_client import _resolve_data_source; _, title, props = _resolve_data_source(); print('Connected:', title); print('Properties:', sorted(props))"
+```
+
+A successful result prints `Connected: Name` followed by the database properties. If it
+fails, check the integration token, database ID, connection access, and property types.
+
+Official references: [internal connections](https://developers.notion.com/guides/get-started/internal-connections),
+[working with databases and IDs](https://developers.notion.com/guides/data-apis/working-with-databases),
+and [CSV import](https://www.notion.com/help/import-data-into-notion).
 
 ## Dashboard
 
