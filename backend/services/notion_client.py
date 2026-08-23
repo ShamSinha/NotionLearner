@@ -86,6 +86,40 @@ def _bullet_list(items: list) -> list:
     return blocks
 
 
+def _numbered_list(items: list) -> list:
+    blocks = []
+    for item in items:
+        if not item:
+            continue
+        content = str(item)[:NOTION_TEXT_MAX]
+        blocks.append(
+            {
+                "object": "block",
+                "type": "numbered_list_item",
+                "numbered_list_item": {
+                    "rich_text": [{"type": "text", "text": {"content": content}}]
+                },
+            }
+        )
+    return blocks
+
+
+def _heading_3(text: str) -> dict:
+    return {
+        "object": "block",
+        "type": "heading_3",
+        "heading_3": {"rich_text": _rich_text(text)},
+    }
+
+
+def _section(blocks: List[dict], title: str, items: list, numbered: bool = False) -> None:
+    values = [item for item in items if item]
+    if not values:
+        return
+    blocks.append(_heading_3(title))
+    blocks.extend(_numbered_list(values) if numbered else _bullet_list(values))
+
+
 def get_client() -> Client:
     return Client(auth=settings.notion_api_key)
 
@@ -162,6 +196,42 @@ def create_learning_item(
     return page_id
 
 
+def find_learning_item_by_url(url: str) -> Optional[str]:
+    """Return an existing page for the exact source URL, if one exists."""
+    client = get_client()
+    data_source_id, _, prop_names = _resolve_data_source()
+    if "URL" not in prop_names:
+        return None
+    response = client.data_sources.query(
+        data_source_id=data_source_id,
+        filter={"property": "URL", "url": {"equals": url}},
+        page_size=1,
+    )
+    results = response.get("results") or []
+    return results[0].get("id") if results else None
+
+
+def refresh_learning_item_source(
+    page_id: str,
+    title: str,
+    resource_type: str,
+    transcript: str,
+) -> None:
+    """Refresh source properties without appending a duplicate transcript body."""
+    client = get_client()
+    _, title_prop, prop_names = _resolve_data_source()
+    properties = {
+        title_prop: {"title": [{"text": {"content": title[:2000]}}]},
+    }
+    if "Type" in prop_names:
+        properties["Type"] = {"select": {"name": TYPE_MAP.get(resource_type, "Article")}}
+    if "Transcript" in prop_names and transcript:
+        properties["Transcript"] = {
+            "rich_text": [{"type": "text", "text": {"content": transcript[:NOTION_TEXT_MAX]}}]
+        }
+    client.pages.update(page_id=page_id, properties=properties)
+
+
 def update_learning_item(page_id: str, analysis: LearningAnalysis) -> None:
     client = get_client()
     _, _, prop_names = _resolve_data_source()
@@ -169,11 +239,12 @@ def update_learning_item(page_id: str, analysis: LearningAnalysis) -> None:
     _apply_analysis_properties(properties, analysis, prop_names)
     if properties:
         client.pages.update(page_id=page_id, properties=properties)
+    label = analysis.mode.replace("_", " ").title()
     children = [
         {
             "object": "block",
             "type": "heading_2",
-            "heading_2": {"rich_text": _rich_text("AI Analysis")},
+            "heading_2": {"rich_text": _rich_text(f"AI Analysis · {label}")},
         }
     ]
     children.extend(_analysis_blocks(analysis))
@@ -230,31 +301,45 @@ def _apply_analysis_properties(
 
 def _analysis_blocks(analysis: LearningAnalysis) -> List[dict]:
     blocks: List[dict] = []
+    if analysis.thesis:
+        blocks.append(
+            {
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "rich_text": _rich_text(analysis.thesis[:NOTION_TEXT_MAX]),
+                    "icon": {"type": "emoji", "emoji": "💡"},
+                },
+            }
+        )
     if analysis.summary:
+        blocks.append(_heading_3("Summary"))
         blocks.append(
             {
                 "object": "block",
                 "type": "paragraph",
-                "paragraph": {"rich_text": _rich_text(analysis.summary[:2000])},
+                "paragraph": {"rich_text": _rich_text(analysis.summary[:NOTION_TEXT_MAX])},
             }
         )
+    if analysis.why_it_matters:
+        blocks.append(_heading_3("Why It Matters"))
+        blocks.extend(_paragraph_blocks(analysis.why_it_matters, limit_chars=4000))
+    if analysis.mental_model:
+        blocks.append(_heading_3("Mental Model"))
+        blocks.extend(_paragraph_blocks(analysis.mental_model, limit_chars=4000))
+
+    _section(blocks, "Key Takeaways", analysis.key_takeaways)
+    _section(blocks, "How It Works", analysis.mechanism_steps, numbered=True)
+    _section(blocks, "Examples", analysis.examples)
+    _section(blocks, "Misconceptions and Pitfalls", analysis.misconceptions)
+    _section(blocks, "Key Concepts", analysis.key_concepts)
+    _section(blocks, "Prerequisites", analysis.prerequisites)
+
     if analysis.feynman_notes:
-        blocks.append(
-            {
-                "object": "block",
-                "type": "heading_3",
-                "heading_3": {"rich_text": _rich_text("Feynman Study Notes")},
-            }
-        )
+        blocks.append(_heading_3("Feynman Explanation"))
         blocks.extend(_paragraph_blocks(analysis.feynman_notes, limit_chars=12000))
     if analysis.paper:
-        blocks.append(
-            {
-                "object": "block",
-                "type": "heading_3",
-                "heading_3": {"rich_text": _rich_text("Paper Structure")},
-            }
-        )
+        blocks.append(_heading_3("Paper Structure"))
         for key in (
             "problem",
             "motivation",
@@ -285,42 +370,29 @@ def _analysis_blocks(analysis: LearningAnalysis) -> List[dict]:
                         },
                     }
                 )
+
+    recall_items = []
+    for item in analysis.recall_questions:
+        if not isinstance(item, dict):
+            continue
+        question = str(item.get("question") or "").strip()
+        answer = str(item.get("answer") or "").strip()
+        if question:
+            recall_items.append(f"Q: {question}\nA: {answer or 'Not stated in source'}")
+    _section(blocks, "Active Recall", recall_items, numbered=True)
+
     if analysis.timestamp_links:
-        blocks.append(
-            {
-                "object": "block",
-                "type": "heading_3",
-                "heading_3": {"rich_text": _rich_text("YouTube Timestamp Links")},
-            }
-        )
+        blocks.append(_heading_3("YouTube Timestamp Links"))
         blocks.extend(_bullet_list(analysis.timestamp_links))
     elif analysis.useful_timestamps:
-        blocks.append(
-            {
-                "object": "block",
-                "type": "heading_3",
-                "heading_3": {"rich_text": _rich_text("Useful Timestamps")},
-            }
-        )
+        blocks.append(_heading_3("Useful Timestamps"))
         blocks.extend(_bullet_list(analysis.useful_timestamps))
-    if analysis.followups:
-        blocks.append(
-            {
-                "object": "block",
-                "type": "heading_3",
-                "heading_3": {"rich_text": _rich_text("Suggested Next Topics")},
-            }
-        )
-        blocks.extend(_bullet_list(analysis.followups))
-    if analysis.related_topics:
-        blocks.append(
-            {
-                "object": "block",
-                "type": "heading_3",
-                "heading_3": {"rich_text": _rich_text("Related Topics")},
-            }
-        )
-        blocks.extend(_bullet_list(analysis.related_topics))
+
+    _section(blocks, "Evidence From the Source", analysis.source_evidence)
+    _section(blocks, "Questions to Explore", analysis.questions_to_explore)
+    _section(blocks, "Uncertainties / Not Stated", analysis.uncertainties)
+    _section(blocks, "Suggested Next Topics", analysis.followups)
+    _section(blocks, "Related Topics", analysis.related_topics)
     return blocks
 
 

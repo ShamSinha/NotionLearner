@@ -19,7 +19,7 @@ function setupMenus() {
     });
     chrome.contextMenus.create({
       id: "add-feynman",
-      title: "Add & Feynman Notes",
+      title: "Add & Explain (Feynman)",
       contexts: ["page", "link", "selection"],
     });
     chrome.contextMenus.create({
@@ -109,7 +109,7 @@ async function enqueueOne(config, payload) {
     if (!health.ok) throw new Error("Backend down");
   } catch {
     await setStatus("err", `Cannot reach ${config.apiUrl}`);
-    return;
+    return { ok: false, error: `Cannot reach ${config.apiUrl}` };
   }
 
   await setStatus("busy", `${payload.mode}: accepted — processing in background…`);
@@ -134,8 +134,10 @@ async function enqueueOne(config, payload) {
     if (!response.ok) throw new Error(formatDetail(data.detail) || `HTTP ${response.status}`);
     await setStatus("busy", `Job ${data.job_id}: ${payload.mode} running…`);
     pollJobs(config, [data.job_id]);
+    return { ok: true, jobId: data.job_id };
   } catch (err) {
     await setStatus("err", String(err.message || err));
+    return { ok: false, error: String(err.message || err) };
   }
 }
 
@@ -193,6 +195,39 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   if (msg?.type === "getConfig") {
     getConfig().then(sendResponse);
+    return true;
+  }
+  if (msg?.type === "enqueueCurrent") {
+    (async () => {
+      try {
+        const config = await getConfig();
+        if (!config.apiUrl || !config.apiSecret) {
+          const error = "Save Backend URL + API Secret in Settings first";
+          await setStatus("err", error);
+          sendResponse({ ok: false, error });
+          return;
+        }
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const url = tab?.url || "";
+        if (!/^https?:/i.test(url)) {
+          sendResponse({ ok: false, error: "The current tab is not an HTTP(S) page" });
+          return;
+        }
+        const mode = ["categorize", "summarize", "feynman", "paper"].includes(msg.mode)
+          ? msg.mode
+          : "categorize";
+        const result = await enqueueOne(config, {
+          url,
+          title: tab.title || "",
+          page_html: await grabHtml(tab, url),
+          selected_text: null,
+          mode,
+        });
+        sendResponse(result);
+      } catch (err) {
+        sendResponse({ ok: false, error: String(err.message || err) });
+      }
+    })();
     return true;
   }
 });

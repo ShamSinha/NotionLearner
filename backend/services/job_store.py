@@ -20,6 +20,7 @@ class Job:
     category: Optional[str] = None
     notion_url: Optional[str] = None
     notion_page_id: Optional[str] = None
+    reused_page: bool = False
     transcript_chars: int = 0
     transcript_preview: str = ""
     error: Optional[str] = None

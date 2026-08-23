@@ -17,6 +17,32 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderJob(local.lastJob);
   await loadModels();
 
+  document.querySelectorAll("[data-mode]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const mode = button.dataset.mode;
+      button.disabled = true;
+      statusBox.className = "status-box busy";
+      statusMsg.textContent = `${modeLabel(mode)}: sending current page…`;
+      chrome.runtime.sendMessage({ type: "enqueueCurrent", mode }, (result) => {
+        button.disabled = false;
+        if (chrome.runtime.lastError) {
+          statusBox.className = "status-box err";
+          statusMsg.textContent = chrome.runtime.lastError.message;
+          return;
+        }
+        if (!result?.ok) {
+          statusBox.className = "status-box err";
+          statusMsg.textContent = result?.error || "Could not queue this page";
+        }
+      });
+    });
+  });
+
+  document.getElementById("dashboard").addEventListener("click", async () => {
+    const url = apiUrlInput.value.replace(/\/$/, "") || "http://localhost:8000";
+    await chrome.tabs.create({ url });
+  });
+
   document.getElementById("refreshModels").addEventListener("click", loadModels);
 
   document.getElementById("save").addEventListener("click", async () => {
@@ -118,7 +144,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       savedEl.textContent = chat.length ? `${chat.length} chat models found` : "No models — is Ollama running?";
       setTimeout(() => { if (savedEl.textContent.includes("found")) savedEl.textContent = ""; }, 2000);
     } catch {
-      fillSelect(catModel, ["gemma4:e4b"], "gemma4:e4b");
+      fillSelect(catModel, ["qwen3:4b"], "qwen3:4b");
       fillSelect(anModel, ["qwen3:8b"], "qwen3:8b");
       savedEl.textContent = "Could not reach /api/models";
     }
@@ -151,15 +177,26 @@ document.addEventListener("DOMContentLoaded", async () => {
       jobBox.textContent = "No active job details yet.";
       return;
     }
-    const bits = [
-      `id=${job.id}`,
-      `status=${job.status}`,
-      `stage=${job.stage || ""}`,
-      job.transcript_chars ? `chars=${job.transcript_chars}` : null,
-      job.category ? `course=${job.category}` : null,
-      job.timings?.llm != null ? `llm=${job.timings.llm}s` : null,
-      job.notion_url ? "notion=ready" : null,
-    ].filter(Boolean);
-    jobBox.textContent = bits.join(" · ");
+    const title = escapeHtml(job.title || "Learning item");
+    const state = escapeHtml(job.stage || job.status || "Queued");
+    const details = [
+      job.reused_page ? "Updated existing page" : null,
+      job.category ? escapeHtml(job.category) : null,
+      job.timings?.total != null ? `${job.timings.total}s` : null,
+    ].filter(Boolean).join(" · ");
+    const notion = job.notion_url
+      ? `<a href="${escapeHtml(job.notion_url)}" target="_blank">Open in Notion ↗</a>`
+      : "";
+    jobBox.innerHTML = `<strong>${title}</strong><div>${state}${details ? ` · ${details}` : ""}</div>${notion}`;
+  }
+
+  function modeLabel(mode) {
+    return ({ categorize: "Save", summarize: "Summarize", feynman: "Explain", paper: "Research paper" })[mode] || mode;
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (char) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    })[char]);
   }
 });

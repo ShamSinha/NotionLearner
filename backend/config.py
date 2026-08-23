@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     api_secret: str
 
     # Dual models: fast categorize vs deeper analysis
-    openai_model: str = "gemma4:e4b"  # legacy alias → analyze model
-    categorize_model: str = "gemma4:e4b"
+    openai_model: str = "qwen3:8b"  # legacy alias → analyze model
+    categorize_model: str = "qwen3:4b"
     analyze_model: str = "qwen3:8b"
     embedding_model: str = "nomic-embed-text"
 

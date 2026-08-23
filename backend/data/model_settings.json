@@ -1,5 +1,5 @@
 {
-  "categorize_model": "gemma4:e4b",
+  "categorize_model": "qwen3:4b",
   "analyze_model": "qwen3:8b",
   "embedding_model": "nomic-embed-text:latest"
 }

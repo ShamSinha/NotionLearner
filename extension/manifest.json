@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "NotionLearner",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Save papers/videos to Notion with local AI: summarize, Feynman notes, batch tabs",
   "permissions": ["contextMenus", "activeTab", "storage", "notifications", "scripting", "tabs"],
   "host_permissions": ["<all_urls>", "http://localhost:8000/*"],

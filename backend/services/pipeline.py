@@ -7,7 +7,13 @@ from services.content_extractor import extract_from_url
 from services.job_store import jobs
 from services.llm_processor import analyze_content, categorize_content
 from services.local_search import local_search, stable_id
-from services.notion_client import create_learning_item, get_page_url, update_learning_item
+from services.notion_client import (
+    create_learning_item,
+    find_learning_item_by_url,
+    get_page_url,
+    refresh_learning_item_source,
+    update_learning_item,
+)
 
 
 def resolve_mode(summarize: bool, mode: Optional[str], resource_hint: str = "") -> str:
@@ -59,16 +65,32 @@ def run_job(
             f"Writing {len(extracted.content or '')} chars to Notion…",
         )
         t1 = time.time()
-        page_id = create_learning_item(
-            title=extracted.title,
-            url=url,
-            resource_type=extracted.resource_type,
-            transcript=extracted.content or "",
-            analysis=None,
-        )
+        page_id = find_learning_item_by_url(url)
+        reused_page = bool(page_id)
+        if page_id:
+            refresh_learning_item_source(
+                page_id=page_id,
+                title=extracted.title,
+                resource_type=extracted.resource_type,
+                transcript=extracted.content or "",
+            )
+        else:
+            page_id = create_learning_item(
+                title=extracted.title,
+                url=url,
+                resource_type=extracted.resource_type,
+                transcript=extracted.content or "",
+                analysis=None,
+            )
         timings["notion_save"] = round(time.time() - t1, 1)
         notion_url = get_page_url(page_id)
-        jobs.update(job_id, notion_url=notion_url, notion_page_id=page_id)
+        jobs.update(
+            job_id,
+            notion_url=notion_url,
+            notion_page_id=page_id,
+            reused_page=reused_page,
+            message="Updating existing Notion page" if reused_page else "Created Notion page",
+        )
 
         jobs.mark_stage(job_id, "llm", "Running local LLM", f"Mode={effective_mode}…")
         t2 = time.time()

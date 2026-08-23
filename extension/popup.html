@@ -3,32 +3,67 @@
 <head>
   <meta charset="utf-8" />
   <style>
+    :root {
+      --blue: #191919;
+      --blue-dark: #000;
+      --ink: #191919;
+      --muted: #787774;
+      --line: #e3e2df;
+      --surface: #f7f6f3;
+    }
+    * { box-sizing: border-box; }
     body {
-      width: 360px;
-      padding: 14px;
+      width: 380px;
+      padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 13px;
-      color: #1a1a1a;
+      color: var(--ink);
       margin: 0;
+      background: white;
     }
-    h1 { font-size: 15px; margin: 0 0 10px; }
+    header {
+      display: flex; align-items: center; gap: 10px; padding: 15px 16px 11px;
+    }
+    header img { width: 34px; height: 34px; border-radius: 9px; }
+    h1 { font-size: 16px; line-height: 1.1; margin: 0; letter-spacing: -.01em; }
+    .tagline { color: var(--muted); font-size: 11px; margin-top: 3px; }
+    main { padding: 0 16px 16px; }
+    .section-label {
+      color: var(--muted); font-size: 10px; font-weight: 700;
+      letter-spacing: .08em; text-transform: uppercase; margin: 2px 0 8px;
+    }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .action {
+      width: 100%; min-height: 70px; padding: 10px; margin: 0;
+      display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between;
+      color: var(--ink); background: var(--surface); border: 1px solid var(--line);
+      border-radius: 11px; cursor: pointer; text-align: left;
+    }
+    .action:hover { border-color: #a6a6a3; background: #f1f1ef; }
+    .action.primary { color: white; border-color: var(--blue); background: var(--blue); }
+    .action.primary:hover { background: var(--blue-dark); }
+    .action svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+    .action strong { font-size: 12px; }
+    .action span { font-size: 10px; opacity: .72; margin-top: 2px; }
+    .utility-row { display: flex; gap: 7px; margin-top: 8px; }
+    .utility-row button { flex: 1; }
     label { display: block; margin-bottom: 3px; font-weight: 500; color: #555; }
     input, select {
       width: 100%; box-sizing: border-box; padding: 7px; margin-bottom: 8px;
-      border: 1px solid #ddd; border-radius: 6px; font-size: 12px;
+      border: 1px solid var(--line); border-radius: 7px; font-size: 12px; background: white;
     }
     button {
-      width: 100%; padding: 9px; background: #2563eb; color: white; border: none;
-      border-radius: 6px; font-size: 13px; cursor: pointer; margin-top: 4px;
+      padding: 8px 10px; background: var(--blue); color: white; border: none;
+      border-radius: 7px; font-size: 12px; cursor: pointer;
     }
-    button.secondary { background: #334155; }
+    button.secondary { background: #37352f; }
     button:hover { filter: brightness(1.05); }
     .saved { margin-top: 6px; font-size: 11px; color: #16a34a; min-height: 14px; }
     .status-box {
-      margin-top: 10px; padding: 10px; border-radius: 8px; background: #f4f4f5;
+      margin-top: 12px; padding: 10px; border-radius: 9px; background: var(--surface);
       font-size: 12px; line-height: 1.4;
     }
-    .status-box.busy { background: #dbeafe; color: #1e40af; }
+    .status-box.busy { background: #eeeeec; color: #37352f; }
     .status-box.ok { background: #dcfce7; color: #166534; }
     .status-box.err { background: #fee2e2; color: #991b1b; }
     .hint { margin-top: 10px; font-size: 11px; color: #888; line-height: 1.4; }
@@ -36,44 +71,71 @@
       margin-top: 8px; padding: 8px; border-radius: 8px; background: #f8fafc;
       border: 1px solid #e2e8f0; font-size: 11px; color: #334155;
     }
+    .job a { color: var(--blue); font-weight: 650; text-decoration: none; }
     .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    details { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; }
+    summary { color: var(--muted); cursor: pointer; font-weight: 650; user-select: none; }
+    .settings-body { padding-top: 10px; }
+    .settings-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .settings-actions button { width: 100%; }
+    button:disabled { cursor: wait; opacity: .6; }
   </style>
 </head>
 <body>
-  <h1>NotionLearner</h1>
+  <header>
+    <img src="icons/icon48.png" alt="" />
+    <div><h1>NotionLearner</h1><div class="tagline">Turn this page into something learnable.</div></div>
+  </header>
 
-  <label for="apiUrl">Backend URL</label>
-  <input id="apiUrl" type="url" placeholder="http://localhost:8000" />
-
-  <label for="apiSecret">API Secret</label>
-  <input id="apiSecret" type="password" placeholder="API secret" />
-
-  <div class="row2">
-    <div>
-      <label for="catModel">Categorize</label>
-      <select id="catModel"><option>loading…</option></select>
+  <main>
+    <div class="section-label">Current page</div>
+    <div class="actions">
+      <button class="action primary" data-mode="categorize">
+        <svg viewBox="0 0 24 24"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 18h14v3H5z"/></svg>
+        <div><strong>Save</strong><br><span>Fast organize with Qwen 4B</span></div>
+      </button>
+      <button class="action" data-mode="summarize">
+        <svg viewBox="0 0 24 24"><path d="M5 6h14M5 11h14M5 16h9M5 20h6"/></svg>
+        <div><strong>Summarize</strong><br><span>Grounded study notes</span></div>
+      </button>
+      <button class="action" data-mode="feynman">
+        <svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M8.5 14.5A7 7 0 1 1 15.5 14.5C14.5 15.3 14 16 14 18h-4c0-2-.5-2.7-1.5-3.5z"/></svg>
+        <div><strong>Explain</strong><br><span>Feynman-style teaching</span></div>
+      </button>
+      <button class="action" data-mode="paper">
+        <svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6zM14 3v4h4M9 12h6M9 16h6"/></svg>
+        <div><strong>Research paper</strong><br><span>Method, evidence, limits</span></div>
+      </button>
     </div>
-    <div>
-      <label for="anModel">Analyze</label>
-      <select id="anModel"><option>loading…</option></select>
+    <div class="utility-row">
+      <button id="batch" class="secondary">Save all tabs</button>
+      <button id="dashboard" class="secondary">Open dashboard</button>
     </div>
-  </div>
 
-  <button id="save">Save settings + models</button>
-  <button id="refreshModels" class="secondary">Refresh model list</button>
-  <button id="clear" class="secondary">Clear stuck status</button>
-  <button id="batch" class="secondary">Add all open tabs</button>
-  <div class="saved" id="saved"></div>
+    <div class="status-box" id="statusBox"><div id="statusMsg">Ready.</div></div>
+    <div class="job" id="jobBox">No recent job.</div>
 
-  <div class="status-box" id="statusBox">
-    <div id="statusMsg">Ready. Right-click → Add / Summarize / Feynman / Paper.</div>
-  </div>
-  <div class="job" id="jobBox">No active job details yet.</div>
-
-  <p class="hint">
-    Switch Gemma ↔ Qwen here anytime. Categorize = fast inbox tagging.
-    Analyze = Summarize / Feynman / Paper.
-  </p>
+    <details id="settingsPanel">
+      <summary>Settings and models</summary>
+      <div class="settings-body">
+        <label for="apiUrl">Backend URL</label>
+        <input id="apiUrl" type="url" placeholder="http://localhost:8000" />
+        <label for="apiSecret">API Secret</label>
+        <input id="apiSecret" type="password" placeholder="API secret" />
+        <div class="row2">
+          <div><label for="catModel">Save / categorize</label><select id="catModel"><option>loading…</option></select></div>
+          <div><label for="anModel">Analyze / explain</label><select id="anModel"><option>loading…</option></select></div>
+        </div>
+        <div class="settings-actions">
+          <button id="save">Save settings</button>
+          <button id="refreshModels" class="secondary">Refresh models</button>
+          <button id="clear" class="secondary">Clear status</button>
+        </div>
+        <div class="saved" id="saved"></div>
+        <p class="hint">Qwen 4B handles fast saving. Qwen 8B handles summaries, explanations, and papers.</p>
+      </div>
+    </details>
+  </main>
 
   <script src="popup.js"></script>
 </body>

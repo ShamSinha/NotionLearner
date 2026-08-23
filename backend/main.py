@@ -16,7 +16,7 @@ from services import ollama_manager as _ollama_manager  # noqa: F401
 app = FastAPI(
     title="NotionLearner API",
     description="Local learning inbox: transcripts, Whisper fallback, chunked LLM, Notion",
-    version="0.4.1",
+    version="0.5.0",
 )
 
 app.add_middleware(
