@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      width: 360px;
+      padding: 14px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 13px;
+      color: #1a1a1a;
+      margin: 0;
+    }
+    h1 { font-size: 15px; margin: 0 0 10px; }
+    label { display: block; margin-bottom: 3px; font-weight: 500; color: #555; }
+    input, select {
+      width: 100%; box-sizing: border-box; padding: 7px; margin-bottom: 8px;
+      border: 1px solid #ddd; border-radius: 6px; font-size: 12px;
+    }
+    button {
+      width: 100%; padding: 9px; background: #2563eb; color: white; border: none;
+      border-radius: 6px; font-size: 13px; cursor: pointer; margin-top: 4px;
+    }
+    button.secondary { background: #334155; }
+    button:hover { filter: brightness(1.05); }
+    .saved { margin-top: 6px; font-size: 11px; color: #16a34a; min-height: 14px; }
+    .status-box {
+      margin-top: 10px; padding: 10px; border-radius: 8px; background: #f4f4f5;
+      font-size: 12px; line-height: 1.4;
+    }
+    .status-box.busy { background: #dbeafe; color: #1e40af; }
+    .status-box.ok { background: #dcfce7; color: #166534; }
+    .status-box.err { background: #fee2e2; color: #991b1b; }
+    .hint { margin-top: 10px; font-size: 11px; color: #888; line-height: 1.4; }
+    .job {
+      margin-top: 8px; padding: 8px; border-radius: 8px; background: #f8fafc;
+      border: 1px solid #e2e8f0; font-size: 11px; color: #334155;
+    }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  </style>
+</head>
+<body>
+  <h1>NotionLearner</h1>
+
+  <label for="apiUrl">Backend URL</label>
+  <input id="apiUrl" type="url" placeholder="http://localhost:8000" />
+
+  <label for="apiSecret">API Secret</label>
+  <input id="apiSecret" type="password" placeholder="API secret" />
+
+  <div class="row2">
+    <div>
+      <label for="catModel">Categorize</label>
+      <select id="catModel"><option>loading…</option></select>
+    </div>
+    <div>
+      <label for="anModel">Analyze</label>
+      <select id="anModel"><option>loading…</option></select>
+    </div>
+  </div>
+
+  <button id="save">Save settings + models</button>
+  <button id="refreshModels" class="secondary">Refresh model list</button>
+  <button id="clear" class="secondary">Clear stuck status</button>
+  <button id="batch" class="secondary">Add all open tabs</button>
+  <div class="saved" id="saved"></div>
+
+  <div class="status-box" id="statusBox">
+    <div id="statusMsg">Ready. Right-click → Add / Summarize / Feynman / Paper.</div>
+  </div>
+  <div class="job" id="jobBox">No active job details yet.</div>
+
+  <p class="hint">
+    Switch Gemma ↔ Qwen here anytime. Categorize = fast inbox tagging.
+    Analyze = Summarize / Feynman / Paper.
+  </p>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NotionLearner Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --text: #e7ecf3;
+      --muted: #8b9bb4;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #1e3a5f 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 28px 32px 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
+    .sub { color: var(--muted); margin-top: 6px; font-size: 14px; }
+    .stats { display: flex; gap: 12px; flex-wrap: wrap; }
+    .stat {
+      background: var(--panel);
+      border: 1px solid #2a3648;
+      border-radius: 12px;
+      padding: 12px 16px;
+      min-width: 110px;
+    }
+    .stat .n { font-size: 20px; font-weight: 650; }
+    .stat .l { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    main { padding: 20px 32px 40px; display: grid; gap: 16px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid #2a3648;
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .card h2 {
+      margin: 0;
+      padding: 14px 16px;
+      font-size: 14px;
+      border-bottom: 1px solid #243044;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      text-align: left;
+      padding: 12px 14px;
+      border-bottom: 1px solid #243044;
+      vertical-align: top;
+      font-size: 13px;
+    }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+    tr:last-child td { border-bottom: none; }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 650;
+    }
+    .queued, .extracting, .llm, .notion { background: #3b2f14; color: #fbbf24; }
+    .done { background: #14301f; color: #4ade80; }
+    .error { background: #3f1515; color: #f87171; }
+    .title { font-weight: 600; }
+    .muted { color: var(--muted); }
+    a { color: #93c5fd; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .timing { font-variant-numeric: tabular-nums; }
+    .preview {
+      margin-top: 6px;
+      white-space: pre-wrap;
+      color: #a8b3c7;
+      font-size: 12px;
+      max-height: 72px;
+      overflow: hidden;
+      border-left: 2px solid #334155;
+      padding-left: 8px;
+    }
+    .bar {
+      height: 8px;
+      background: #243044;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .bar > span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, #22c55e, #eab308, #ef4444);
+    }
+    .empty { padding: 28px; color: var(--muted); }
+    .hint { color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .grid2 { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+    @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+    .panel-body { padding: 14px 16px; font-size: 13px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>NotionLearner</h1>
+      <div class="sub">Transcript first → Notion → Gemma · live every 1.5s</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="n" id="active">0</div><div class="l">Active jobs</div></div>
+      <div class="stat"><div class="n" id="model">—</div><div class="l">Model</div></div>
+      <div class="stat"><div class="n" id="ram">—</div><div class="l">RAM used</div></div>
+      <div class="stat"><div class="n" id="ollamaBusy">—</div><div class="l">Ollama</div></div>
+    </div>
+  </header>
+  <main>
+    <div class="grid2">
+      <div class="card">
+        <h2>System / RAM</h2>
+        <div class="panel-body">
+          <div id="ramText">Loading…</div>
+          <div class="bar"><span id="ramBar" style="width:0%"></span></div>
+          <div class="muted" id="cpuText" style="margin-top:8px"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Ollama</h2>
+        <div class="panel-body" id="ollamaText">Loading…</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Model switcher</h2>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label class="muted" for="catModel">Categorize (fast)</label>
+            <select id="catModel" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid #2a3648;background:#0f1419;color:#e7ecf3"></select>
+          </div>
+          <div>
+            <label class="muted" for="anModel">Analyze / Summarize</label>
+            <select id="anModel" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid #2a3648;background:#0f1419;color:#e7ecf3"></select>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <label class="muted" for="embModel">Embeddings (search)</label>
+          <select id="embModel" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid #2a3648;background:#0f1419;color:#e7ecf3"></select>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input id="apiSecretDash" type="password" placeholder="API secret (for switching)" style="flex:1;min-width:180px;padding:8px;border-radius:8px;border:1px solid #2a3648;background:#0f1419;color:#e7ecf3" />
+          <button id="saveModels" style="padding:8px 14px;border-radius:8px;border:none;background:#3b82f6;color:white;cursor:pointer">Save models</button>
+          <span id="modelMsg" class="muted"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Local search</h2>
+      <div class="panel-body">
+        <input id="q" placeholder="Search past learning items…" style="width:100%;padding:8px;border-radius:8px;border:1px solid #2a3648;background:#0f1419;color:#e7ecf3" />
+        <div id="searchResults" class="muted" style="margin-top:10px"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Jobs</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Title / Transcript preview</th>
+            <th>Mode</th>
+            <th>Stage</th>
+            <th>Time</th>
+            <th>Course</th>
+            <th>Notion</th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr><td colspan="7" class="empty">No jobs yet. Right-click → Add to Learning Queue.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="hint">
+      Pipeline: extract transcript → save to Notion page body immediately → run Gemma → update Course / AI Summary.
+      Open this page while summarizing to watch RAM and Ollama load.
+    </p>
+  </main>
+  <script>
+    async function refresh() {
+      try {
+        const [health, jobsRes, status] = await Promise.all([
+          fetch('/health').then(r => r.json()),
+          fetch('/api/jobs').then(r => r.json()),
+          fetch('/api/status').then(r => r.json()),
+        ]);
+        document.getElementById('active').textContent = jobsRes.active ?? 0;
+        document.getElementById('model').textContent = status.analyze_model || status.model || '—';
+
+        const sys = status.system || {};
+        document.getElementById('ram').textContent =
+          sys.ram_used_gb != null ? `${sys.ram_used_gb}/${sys.ram_total_gb}G` : '—';
+        document.getElementById('ramText').textContent =
+          `Used ${sys.ram_used_gb} GB / ${sys.ram_total_gb} GB (${sys.ram_percent}%) · available ${sys.ram_available_gb} GB`;
+        document.getElementById('ramBar').style.width = `${sys.ram_percent || 0}%`;
+        document.getElementById('cpuText').textContent =
+          `CPU ${sys.cpu_percent ?? '—'}% · categorize=${status.categorize_model || '?'} · analyze=${status.analyze_model || '?'}`;
+
+        const ol = status.ollama || {};
+        const ollamaLabel = !ol.ok
+          ? 'DOWN'
+          : (jobsRes.active > 0 || ol.generating)
+            ? 'GENERATING'
+            : ol.loaded_in_ram
+              ? 'LOADED'
+              : 'idle';
+        document.getElementById('ollamaBusy').textContent = ollamaLabel;
+        const loaded = (ol.loaded || ol.running || []).map(m =>
+          `${m.name} · ${m.size_gb} GB in RAM · ctx ${m.context_length || '?'}`
+        ).join('<br>') || 'No model currently loaded in memory';
+        document.getElementById('ollamaText').innerHTML =
+          `<div><strong>${ol.configured_model || ''}</strong> ${ol.ok ? 'reachable' : 'unreachable'}</div>` +
+          `<div class="muted" style="margin-top:6px">${
+            (jobsRes.active > 0 || ol.generating)
+              ? 'Actively generating for a NotionLearner job'
+              : ol.loaded_in_ram
+                ? 'Model kept warm in RAM (not generating) — normal after a recent call'
+                : 'Idle — model not in RAM'
+          }</div>` +
+          `<div class="muted" style="margin-top:6px">${loaded}</div>` +
+          (ol.error ? `<div class="muted">${escapeHtml(ol.error)}</div>` : '');
+
+        const rows = document.getElementById('rows');
+        const jobs = jobsRes.jobs || [];
+        if (!jobs.length) {
+          rows.innerHTML = '<tr><td colspan="7" class="empty">No jobs yet. Right-click → Add to Learning Queue.</td></tr>';
+          return;
+        }
+        rows.innerHTML = jobs.map(j => {
+          const timings = j.timings || {};
+          const timeBits = [];
+          if (timings.extract != null) timeBits.push(`extract ${timings.extract}s`);
+          if (timings.llm != null) timeBits.push(`LLM ${timings.llm}s`);
+          if (timings.total != null) timeBits.push(`total ${timings.total}s`);
+          else if (j.elapsed_seconds != null) timeBits.push(`${j.elapsed_seconds}s`);
+          const preview = j.transcript_preview
+            ? `<div class="preview">${escapeHtml(j.transcript_preview)}</div>`
+            : '';
+          const chars = j.transcript_chars
+            ? `<div class="muted">${j.transcript_chars} chars extracted</div>`
+            : '';
+          const err = j.error ? `<div class="muted">${escapeHtml(j.error)}</div>` : '';
+          const msg = j.message && j.status !== 'done'
+            ? `<div class="muted">${escapeHtml(j.message)}</div>` : '';
+          return `<tr>
+            <td><span class="badge ${j.status}">${j.status}</span></td>
+            <td><div class="title">${escapeHtml(j.title || '')}</div>${chars}${msg}${err}${preview}</td>
+            <td>${j.mode}</td>
+            <td>${escapeHtml(j.stage || '')}</td>
+            <td class="timing">${timeBits.join(' · ') || '—'}</td>
+            <td>${escapeHtml(j.category || '—')}</td>
+            <td>${j.notion_url ? `<a href="${j.notion_url}" target="_blank">Open</a>` : '—'}</td>
+          </tr>`;
+        }).join('');
+      } catch (e) {
+        document.getElementById('ollamaBusy').textContent = 'DOWN';
+      }
+    }
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    refresh();
+    setInterval(refresh, 1500);
+    loadModels();
+
+    async function loadModels() {
+      try {
+        const data = await fetch('/api/models').then(r => r.json());
+        const chat = data.chat_models || data.installed || [];
+        const emb = data.embedding_models || data.installed || [];
+        const cur = data.current || {};
+        fillSelect('catModel', chat, cur.categorize_model);
+        fillSelect('anModel', chat, cur.analyze_model);
+        fillSelect('embModel', emb, cur.embedding_model);
+        const secret = localStorage.getItem('nl_api_secret') || 'notionlearner-local-secret';
+        document.getElementById('apiSecretDash').value = secret;
+      } catch (e) {
+        document.getElementById('modelMsg').textContent = 'Could not load models';
+      }
+    }
+
+    function fillSelect(id, options, selected) {
+      const el = document.getElementById(id);
+      el.innerHTML = options.map(o =>
+        `<option value="${escapeHtml(o)}" ${o === selected ? 'selected' : ''}>${escapeHtml(o)}</option>`
+      ).join('');
+      if (selected && ![...el.options].some(o => o.value === selected)) {
+        el.insertAdjacentHTML('afterbegin', `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`);
+      }
+    }
+
+    document.getElementById('saveModels')?.addEventListener('click', async () => {
+      const secret = document.getElementById('apiSecretDash').value.trim();
+      localStorage.setItem('nl_api_secret', secret);
+      const msg = document.getElementById('modelMsg');
+      msg.textContent = 'Saving…';
+      try {
+        const res = await fetch('/api/models', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${secret}`,
+          },
+          body: JSON.stringify({
+            categorize_model: document.getElementById('catModel').value,
+            analyze_model: document.getElementById('anModel').value,
+            embedding_model: document.getElementById('embModel').value,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed');
+        msg.textContent = `Saved · analyze=${data.current.analyze_model}`;
+      } catch (e) {
+        msg.textContent = String(e.message || e);
+      }
+    });
+
+    let searchTimer = null;
+    document.getElementById('q')?.addEventListener('input', (e) => {
+      clearTimeout(searchTimer);
+      const q = e.target.value.trim();
+      searchTimer = setTimeout(async () => {
+        const box = document.getElementById('searchResults');
+        if (!q) { box.textContent = ''; return; }
+        try {
+          const res = await fetch('/api/search?q=' + encodeURIComponent(q)).then(r => r.json());
+          const items = res.results || [];
+          if (!items.length) { box.textContent = 'No matches yet (embeddings fill after successful jobs).'; return; }
+          box.innerHTML = items.map(it =>
+            `<div style="margin-bottom:8px"><a href="${it.url}" target="_blank">${escapeHtml(it.title || it.url)}</a>` +
+            ` <span class="muted">(${escapeHtml(it.category || '')} · ${it.score})</span>` +
+            `<div class="muted">${escapeHtml(it.snippet || '')}</div></div>`
+          ).join('');
+        } catch {
+          box.textContent = 'Search unavailable';
+        }
+      }, 350);
+    });
+  </script>
+</body>
+</html>
