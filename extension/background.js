@@ -61,7 +61,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     "add-paper": "paper",
   };
   const mode = modeMap[info.menuItemId] || "categorize";
-  const url = info.linkUrl || info.pageUrl || tab?.url;
+  const url = resolveHttpUrl(info.linkUrl || info.pageUrl || tab?.url);
   if (!url) return;
 
   await enqueueOne(config, {
@@ -76,8 +76,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 async function addAllTabs(config) {
   const tabs = await chrome.tabs.query({ currentWindow: true });
   const items = tabs
-    .filter((t) => t.url && /^https?:/i.test(t.url))
-    .map((t) => ({ url: t.url, title: t.title || "" }));
+    .map((t) => ({ url: resolveHttpUrl(t.url), title: t.title || "" }))
+    .filter((item) => item.url);
   if (!items.length) {
     await setStatus("err", "No http(s) tabs to add");
     return;
@@ -208,9 +208,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           return;
         }
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        const url = tab?.url || "";
-        if (!/^https?:/i.test(url)) {
-          sendResponse({ ok: false, error: "The current tab is not an HTTP(S) page" });
+        const url = resolveHttpUrl(tab?.url);
+        if (!url) {
+          sendResponse({ ok: false, error: "Could not find the original HTTP(S) URL in this tab" });
           return;
         }
         const mode = ["categorize", "summarize", "feynman", "paper"].includes(msg.mode)
@@ -256,6 +256,40 @@ async function setStatus(kind, message) {
 
 function isYouTube(url) {
   return /youtube\.com|youtu\.be/.test(url);
+}
+
+function resolveHttpUrl(value) {
+  const raw = String(value || "").trim();
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (!/^(chrome|moz)-extension:\/\//i.test(raw)) return "";
+
+  try {
+    const viewer = new URL(raw);
+    const candidates = [
+      viewer.searchParams.get("file"),
+      viewer.searchParams.get("url"),
+      viewer.searchParams.get("src"),
+      viewer.pathname.replace(/^\//, ""),
+      viewer.hash.replace(/^#/, ""),
+    ];
+    for (let candidate of candidates) {
+      if (!candidate) continue;
+      for (let i = 0; i < 3; i += 1) {
+        try {
+          const decoded = decodeURIComponent(candidate);
+          if (decoded === candidate) break;
+          candidate = decoded;
+        } catch {
+          break;
+        }
+      }
+      const match = candidate.match(/https?:\/\/.+/i);
+      if (match) return match[0];
+    }
+  } catch {
+    return "";
+  }
+  return "";
 }
 
 async function getConfig() {

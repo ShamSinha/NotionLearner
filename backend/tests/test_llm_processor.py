@@ -15,6 +15,7 @@ from services.llm_processor import (
     _chunks,
     _compact_notes,
     _without_timestamp_prefix,
+    generate_source_title,
 )
 
 
@@ -102,6 +103,20 @@ class StructuredOutputTests(unittest.TestCase):
         self.assertIn("Repair a JSON candidate", retry_messages[0]["content"])
         self.assertIn("not json", retry_messages[1]["content"])
         self.assertNotEqual(retry_messages[1]["content"], "user")
+
+    @patch("services.llm_processor.get_categorize_model", return_value="qwen3:4b")
+    @patch("services.llm_processor._chat_json", return_value={"title": "Latent World Models"})
+    def test_grounded_title_uses_fast_model(self, chat_json, get_model):
+        title = generate_source_title(
+            "Repost",
+            "A discussion of latent world models for planning.",
+            "article",
+            "https://reddit.com/r/ai/comments/abc/post/",
+        )
+
+        self.assertEqual(title, "Latent World Models")
+        self.assertEqual(chat_json.call_args.kwargs["model"], "qwen3:4b")
+        get_model.assert_called_once()
 
 
 if __name__ == "__main__":

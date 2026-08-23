@@ -11,6 +11,7 @@ Local AI learning inbox: right-click papers/YouTube → Notion, with transcripts
 - **Research paper mode** + **PDF text extraction** (PyMuPDF)
 - **Grounded learning notes** with evidence, mental models, misconceptions, and active recall
 - **Validated structured output** with automatic schema-guided retry
+- **Smart source titles** — metadata first, grounded Qwen fallback for generic titles
 - **Feynman explanations** grounded in evidence sampled across the source
 - **Dual models** — `qwen3:4b` fast categorize, `qwen3:8b` deep analysis
 - **Duplicate-aware reprocessing** — the same URL updates its existing Notion page
@@ -18,6 +19,30 @@ Local AI learning inbox: right-click papers/YouTube → Notion, with transcripts
 - **YouTube timestamp deep-links** in Notion
 - **Course follow-ups** + local semantic search (Ollama embeddings)
 - **Idle Ollama unload** to free RAM on 16GB Macs
+
+## Supported sources and websites
+
+| Source | Support | How it is handled |
+|---|---|---|
+| YouTube | Yes | Captions with timestamps; optional Whisper fallback when captions are unavailable |
+| Direct PDF links | Yes | Downloads and extracts selectable text with PyMuPDF |
+| arXiv | Yes | Supports both abstract and PDF URLs; use Research paper mode for the full schema |
+| Adobe/Chrome PDF viewer tabs | Yes, when the original URL is embedded | Recovers the underlying HTTP(S) PDF URL from the viewer wrapper |
+| Reddit posts | Yes | Extracts visible post content and recovers the real post title from Reddit metadata |
+| ChatGPT conversations/share pages | Best effort | Extracts conversation text visible in the currently open page |
+| Articles, blogs, documentation, and news pages | Yes | Extracts the main readable page content with Trafilatura |
+| Any selected webpage text | Yes | Right-click the selection and choose a NotionLearner action |
+| Multiple open HTTP(S) tabs | Yes | Batch-adds them in Save/categorize mode |
+
+NotionLearner works with most ordinary HTTP(S) webpages, not only the named sites above.
+For authenticated or paywalled pages it can use only content visible in the open tab.
+Pure `blob:` URLs, local `file://` documents, and scanned image-only PDFs are not currently
+supported. JavaScript-only pages may provide limited text; select the relevant text before
+using the context menu when automatic extraction is incomplete.
+
+Titles normally come from site metadata. If the result is generic—such as `Repost`,
+`Untitled`, a raw URL, or a PDF filename—NotionLearner asks the fast categorize model
+(`qwen3:4b` by default) for a concise title grounded in the extracted source excerpt.
 
 ## Quick start
 

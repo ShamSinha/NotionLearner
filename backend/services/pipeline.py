@@ -3,9 +3,9 @@ from __future__ import annotations
 import time
 from typing import Optional
 
-from services.content_extractor import extract_from_url
+from services.content_extractor import extract_from_url, needs_generated_title
 from services.job_store import jobs
-from services.llm_processor import analyze_content, categorize_content
+from services.llm_processor import analyze_content, categorize_content, generate_source_title
 from services.local_search import local_search, stable_id
 from services.notion_client import (
     create_learning_item,
@@ -43,6 +43,23 @@ def run_job(
             selected_text=selected_text,
         )
         timings["extract"] = round(time.time() - t0, 1)
+
+        if needs_generated_title(extracted.title, url):
+            jobs.mark_stage(job_id, "llm", "Naming source", "Recovering a useful title with Qwen…")
+            title_started = time.time()
+            try:
+                generated_title = generate_source_title(
+                    extracted.title,
+                    extracted.content,
+                    extracted.resource_type,
+                    url,
+                )
+                if not needs_generated_title(generated_title, url):
+                    extracted.title = generated_title
+            except Exception:
+                # Title recovery is optional and must never prevent saving the source.
+                pass
+            timings["title"] = round(time.time() - title_started, 1)
 
         # Auto-upgrade articles that are really papers
         effective_mode = mode

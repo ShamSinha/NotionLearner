@@ -4,12 +4,13 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, field_validator
 
 from config import settings
 from services.job_store import jobs
 from services.local_search import local_search
 from services.pipeline import resolve_mode, run_job
+from services.source_url import unwrap_viewer_url
 
 router = APIRouter()
 executor = ThreadPoolExecutor(max_workers=1)  # one LLM job at a time on 16GB Mac
@@ -32,10 +33,20 @@ class AddItemRequest(BaseModel):
     mode: Optional[str] = None  # categorize | summarize | feynman | paper
     async_mode: bool = True
 
+    @field_validator("url", mode="before")
+    @classmethod
+    def unwrap_pdf_viewer_url(cls, value):
+        return unwrap_viewer_url(value)
+
 
 class BatchItem(BaseModel):
     url: HttpUrl
     title: str = ""
+
+    @field_validator("url", mode="before")
+    @classmethod
+    def unwrap_pdf_viewer_url(cls, value):
+        return unwrap_viewer_url(value)
 
 
 class BatchRequest(BaseModel):

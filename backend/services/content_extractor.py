@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import html as html_lib
+import json
 import re
 from dataclasses import dataclass
 from typing import Optional
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 import trafilatura
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -103,6 +105,90 @@ def fetch_youtube_transcript(video_id: str) -> str:
 def is_chatgpt_url(url: str) -> bool:
     host = urlparse(url).netloc.lower()
     return "chatgpt.com" in host or "chat.openai.com" in host
+
+
+def is_reddit_url(url: str) -> bool:
+    host = urlparse(url).netloc.lower().split(":", 1)[0]
+    return host == "reddit.com" or host.endswith(".reddit.com") or host == "redd.it"
+
+
+def _clean_reddit_title(value: str) -> str:
+    title = html_lib.unescape(value or "").strip()
+    title = re.sub(r"\s*[:|–—-]\s*r/[^\s]+\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*[-|–—]\s*Reddit\s*$", "", title, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", title).strip()
+
+
+def needs_generated_title(value: str, url: str = "") -> bool:
+    title = (value or "").strip()
+    if not title or title == url:
+        return True
+    normalized = re.sub(r"\s+", " ", title).strip().lower()
+    if normalized in {
+        "repost",
+        "post",
+        "article",
+        "document",
+        "page",
+        "reddit",
+        "reddit - dive into anything",
+        "reddit – dive into anything",
+        "home",
+        "just a moment...",
+        "sign in",
+        "untitled",
+    }:
+        return True
+    if normalized.startswith(("http://", "https://")):
+        return True
+    # PDF viewers commonly expose only a machine filename instead of the paper title.
+    return bool(re.fullmatch(r"[^/]+\.pdf(?:\s*[-|–—].*)?", normalized))
+
+
+def _useful_title(value: str, url: str = "") -> bool:
+    return not needs_generated_title(value, url)
+
+
+def extract_reddit_title(page_html: str, page_title: str, url: str) -> str:
+    """Choose the actual Reddit post title instead of a viewer/UI label."""
+    source = page_html or ""
+    candidates: list[str] = []
+
+    # New Reddit exposes the original title directly on the post web component.
+    post_title = re.search(
+        r"<shreddit-post\b[^>]*\bpost-title=(?:\"([^\"]+)\"|'([^']+)')",
+        source,
+        flags=re.IGNORECASE,
+    )
+    if post_title:
+        candidates.append(post_title.group(1) or post_title.group(2) or "")
+
+    for pattern in (
+        r"<meta\b[^>]*(?:property|name)=[\"']og:title[\"'][^>]*content=[\"']([^\"']+)[\"']",
+        r"<meta\b[^>]*content=[\"']([^\"']+)[\"'][^>]*(?:property|name)=[\"']og:title[\"']",
+        r"<meta\b[^>]*(?:property|name)=[\"']twitter:title[\"'][^>]*content=[\"']([^\"']+)[\"']",
+    ):
+        match = re.search(pattern, source, flags=re.IGNORECASE)
+        if match:
+            candidates.append(match.group(1))
+
+    headline = re.search(r'"headline"\s*:\s*("(?:\\.|[^"\\])*")', source)
+    if headline:
+        try:
+            candidates.append(json.loads(headline.group(1)))
+        except json.JSONDecodeError:
+            pass
+
+    candidates.append(page_title)
+    slug = re.search(r"/comments/[^/]+/([^/?#]+)/?", url, flags=re.IGNORECASE)
+    if slug:
+        candidates.append(unquote(slug.group(1)).replace("_", " ").replace("-", " "))
+
+    for candidate in candidates:
+        cleaned = _clean_reddit_title(candidate)
+        if _useful_title(cleaned, url):
+            return cleaned
+    return page_title or url
 
 
 def extract_chatgpt_text(page_html: str, selected_text: Optional[str] = None) -> str:
@@ -231,9 +317,12 @@ def extract_from_url(
         )
         if extracted:
             content = extracted
-        meta = trafilatura.extract_metadata(page_html)
-        if meta and meta.title:
-            title = meta.title
+        if is_reddit_url(url):
+            title = extract_reddit_title(page_html, page_title, url)
+        else:
+            meta = trafilatura.extract_metadata(page_html)
+            if meta and _useful_title(meta.title, url):
+                title = meta.title
 
     if not content and selected_text:
         content = selected_text

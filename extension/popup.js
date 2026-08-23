@@ -86,8 +86,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
     const tabs = await chrome.tabs.query({ currentWindow: true });
     const items = tabs
-      .filter((t) => t.url && /^https?:/i.test(t.url))
-      .map((t) => ({ url: t.url, title: t.title || "" }));
+      .map((t) => ({ url: resolveHttpUrl(t.url), title: t.title || "" }))
+      .filter((item) => item.url);
     if (!items.length) {
       statusMsg.textContent = "No tabs to add";
       return;
@@ -164,6 +164,39 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof detail === "string") return detail;
     if (Array.isArray(detail)) return detail.map((d) => d.msg || JSON.stringify(d)).join("; ");
     return JSON.stringify(detail);
+  }
+
+  function resolveHttpUrl(value) {
+    const raw = String(value || "").trim();
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (!/^(chrome|moz)-extension:\/\//i.test(raw)) return "";
+    try {
+      const viewer = new URL(raw);
+      const candidates = [
+        viewer.searchParams.get("file"),
+        viewer.searchParams.get("url"),
+        viewer.searchParams.get("src"),
+        viewer.pathname.replace(/^\//, ""),
+        viewer.hash.replace(/^#/, ""),
+      ];
+      for (let candidate of candidates) {
+        if (!candidate) continue;
+        for (let i = 0; i < 3; i += 1) {
+          try {
+            const decoded = decodeURIComponent(candidate);
+            if (decoded === candidate) break;
+            candidate = decoded;
+          } catch {
+            break;
+          }
+        }
+        const match = candidate.match(/https?:\/\/.+/i);
+        if (match) return match[0];
+      }
+    } catch {
+      return "";
+    }
+    return "";
   }
 
   function renderStatus(status) {
