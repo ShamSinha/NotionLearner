@@ -180,7 +180,7 @@ def create_learning_item(
     page_id = page["id"]
 
     children: List[dict] = []
-    if transcript:
+    if transcript and settings.notion_include_source_content:
         children.append(
             {
                 "object": "block",

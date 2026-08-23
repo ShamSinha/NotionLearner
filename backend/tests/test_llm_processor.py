@@ -90,10 +90,18 @@ class StructuredOutputTests(unittest.TestCase):
 
         self.assertEqual(result["category"], "Machine Learning")
         self.assertEqual(create.call_count, 2)
+        response_format = create.call_args.kwargs["response_format"]
+        self.assertEqual(response_format["type"], "json_schema")
         self.assertEqual(
-            create.call_args.kwargs["response_format"], {"type": "json_object"}
+            response_format["json_schema"]["name"], "CategorizePayload"
         )
+        self.assertTrue(response_format["json_schema"]["strict"])
+        self.assertIn("properties", response_format["json_schema"]["schema"])
         self.assertEqual(create.call_args.kwargs["reasoning_effort"], "none")
+        retry_messages = create.call_args.kwargs["messages"]
+        self.assertIn("Repair a JSON candidate", retry_messages[0]["content"])
+        self.assertIn("not json", retry_messages[1]["content"])
+        self.assertNotEqual(retry_messages[1]["content"], "user")
 
 
 if __name__ == "__main__":

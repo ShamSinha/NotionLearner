@@ -61,8 +61,8 @@ def run_job(
         jobs.mark_stage(
             job_id,
             "notion",
-            "Saving transcript",
-            f"Writing {len(extracted.content or '')} chars to Notion…",
+            "Preparing Notion",
+            "Creating or updating the clean Notion page…",
         )
         t1 = time.time()
         page_id = find_learning_item_by_url(url)

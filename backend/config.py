@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     enable_whisper_fallback: bool = True
     whisper_model: str = "small"  # tiny|base|small|medium — small is good on M4 16GB
 
+    # Keep Notion pages clean by default. Enable to append the full extracted source.
+    notion_include_source_content: bool = False
+
     learning_categories: str = (
         "Information Theory,"
         "Convex Optimization,"

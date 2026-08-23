@@ -5,7 +5,7 @@ Local AI learning inbox: right-click papers/YouTube → Notion, with transcripts
 ## Features (v0.5)
 
 - **Async jobs** — extension returns immediately; watch progress on `http://localhost:8000`
-- **Transcript first** — content is saved to Notion before the LLM finishes
+- **Clean Notion pages** — raw transcripts stay out of the page body by default
 - **YouTube captions**, with optional **Whisper fallback** (`yt-dlp` + mlx-whisper / faster-whisper)
 - **Chunked hierarchical summarization** for long lectures
 - **Research paper mode** + **PDF text extraction** (PyMuPDF)
@@ -165,7 +165,15 @@ these property names and types; the names are case-sensitive:
 | `Completed On` | Date |
 
 `Transcript` is optional. If you add it, make it a **Text** property; the complete
-transcript is always written into the Notion page body even when this property is absent.
+transcript is not shown in the page body by default. To append the complete raw transcript
+or extracted page content under a `Transcript / Extracted content` heading, set:
+
+```dotenv
+NOTION_INCLUDE_SOURCE_CONTENT=true
+```
+
+Leave it `false` for clean pages containing only the generated learning analysis. This
+setting affects newly created pages; it does not remove blocks from existing Notion pages.
 
 If you already have a Learning Queue database, you can recreate the properties above
 instead of importing the sample CSV. Notion's **Merge with CSV** operation adds rows; it

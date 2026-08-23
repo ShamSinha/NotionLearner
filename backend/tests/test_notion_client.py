@@ -7,10 +7,31 @@ os.environ.setdefault("NOTION_DATABASE_ID", "test")
 os.environ.setdefault("API_SECRET", "test")
 
 from services.llm_processor import LearningAnalysis
-from services.notion_client import _analysis_blocks, find_learning_item_by_url
+from services.notion_client import (
+    _analysis_blocks,
+    create_learning_item,
+    find_learning_item_by_url,
+)
 
 
 class NotionOutputTests(unittest.TestCase):
+    def test_raw_source_is_not_appended_by_default(self):
+        client = MagicMock()
+        client.pages.create.return_value = {"id": "page-123"}
+
+        with patch("services.notion_client.get_client", return_value=client), patch(
+            "services.notion_client._resolve_data_source",
+            return_value=("source-1", "Name", {"Name", "URL", "Type", "Status"}),
+        ), patch("services.notion_client.settings.notion_include_source_content", False):
+            create_learning_item(
+                title="Example",
+                url="https://example.com",
+                resource_type="article",
+                transcript="Raw extracted source",
+            )
+
+        client.blocks.children.append.assert_not_called()
+
     def test_rich_learning_sections_are_rendered(self):
         analysis = LearningAnalysis(
             summary="A grounded summary.",

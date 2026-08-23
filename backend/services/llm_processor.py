@@ -234,7 +234,18 @@ def _chat(
     model: str,
     temperature: float = 0.1,
     max_tokens: int = 900,
+    response_schema: Optional[Type[BaseModel]] = None,
 ) -> str:
+    response_format: dict = {"type": "json_object"}
+    if response_schema is not None:
+        response_format = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": response_schema.__name__,
+                "strict": True,
+                "schema": response_schema.model_json_schema(),
+            },
+        }
     ollama_manager.touch()
     response = _client().chat.completions.create(
         model=model,
@@ -244,7 +255,7 @@ def _chat(
         ],
         temperature=temperature,
         max_tokens=max_tokens,
-        response_format={"type": "json_object"},
+        response_format=response_format,
         reasoning_effort="none",
         extra_body={
             "think": False,
@@ -268,20 +279,37 @@ def _chat_json(
     max_tokens: int = 900,
     attempts: int = 2,
 ) -> dict:
-    """Generate JSON, validate it, and give the model one focused repair attempt."""
+    """Generate schema-constrained JSON and repair only the failed candidate."""
     last_error = "invalid structured output"
-    retry_user = user
-    for _attempt in range(attempts):
-        text = _chat(system, retry_user, model, temperature, max_tokens)
+    request_system = system
+    request_user = user
+    for attempt in range(attempts):
+        text = _chat(
+            request_system,
+            request_user,
+            model,
+            temperature,
+            max_tokens,
+            response_schema=schema,
+        )
         raw = _parse_json(text)
         try:
             return schema.model_validate(raw).model_dump()
         except ValidationError as exc:
             last_error = str(exc)
-            retry_user = (
-                f"{user}\n\nYour previous response failed JSON schema validation. "
-                "Return a complete JSON object only; do not add commentary. "
-                f"Validation errors: {last_error[:1200]}"
+            if attempt + 1 >= attempts:
+                break
+            request_system = (
+                "Repair a JSON candidate so it exactly matches the supplied JSON schema. "
+                "Preserve the candidate's grounded information, but correct field types, "
+                "missing required fields, and nesting. Never wrap scalar or array fields in "
+                "chunk-note objects. Return the complete repaired JSON object only."
+            )
+            request_user = (
+                "JSON schema:\n"
+                f"{json.dumps(schema.model_json_schema(), ensure_ascii=False)}\n\n"
+                f"Validation errors:\n{last_error[:2000]}\n\n"
+                f"Failed candidate:\n{text[:14000]}"
             )
     raise RuntimeError(
         f"Model returned invalid {schema.__name__} after {attempts} attempts: {last_error}"
