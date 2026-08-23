@@ -14,5 +14,10 @@ venv/
 .idea/
 .vscode/
 
+# Local search data (may contain saved URLs and extracted content)
+backend/data/embeddings.db
+backend/data/embeddings.db-shm
+backend/data/embeddings.db-wal
+
 # Node (if added later)
 node_modules/
