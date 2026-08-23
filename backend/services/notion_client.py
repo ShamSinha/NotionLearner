@@ -49,6 +49,15 @@ def _rich_text(text: str) -> list:
     ]
 
 
+def _summary_preview(text: str, limit: int = 240) -> str:
+    """Keep the database column scannable; full detail belongs in the page body."""
+    compact = " ".join(str(text or "").split())
+    if len(compact) <= limit:
+        return compact
+    clipped = compact[: limit - 1].rsplit(" ", 1)[0] or compact[: limit - 1]
+    return clipped.rstrip(".,;: ") + "…"
+
+
 def _paragraph_blocks(text: str, limit_chars: int = 40000) -> List[dict]:
     text = (text or "")[:limit_chars]
     blocks = []
@@ -270,9 +279,10 @@ def _apply_analysis_properties(
                 "name": "High" if analysis.difficulty == "advanced" else "Medium"
             }
         }
-    if analysis.summary and "AI Summary" in prop_names:
+    if (analysis.thesis or analysis.summary) and "AI Summary" in prop_names:
+        summary_preview = _summary_preview(analysis.thesis or analysis.summary)
         properties["AI Summary"] = {
-            "rich_text": [{"type": "text", "text": {"content": analysis.summary[:NOTION_TEXT_MAX]}}]
+            "rich_text": [{"type": "text", "text": {"content": summary_preview}}]
         }
     if analysis.key_concepts and "Key Concepts" in prop_names:
         properties["Key Concepts"] = {

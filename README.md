@@ -2,6 +2,10 @@
 
 Local AI learning inbox: right-click papers/YouTube → Notion, with transcripts, chunked summaries, Feynman notes, and course auto-tagging.
 
+<p align="center">
+  <img src="docs/images/extension-overview.png" alt="NotionLearner extension open over its GitHub project" width="900">
+</p>
+
 ## Features (v0.5)
 
 - **Async jobs** — extension returns immediately; watch progress on `http://localhost:8000`
@@ -19,6 +23,26 @@ Local AI learning inbox: right-click papers/YouTube → Notion, with transcripts
 - **YouTube timestamp deep-links** in Notion
 - **Course follow-ups** + local semantic search (Ollama embeddings)
 - **Idle Ollama unload** to free RAM on 16GB Macs
+
+## Screenshots
+
+### Capture from the browser
+
+| YouTube and webpages | PDFs and research papers |
+|---|---|
+| <img src="docs/images/youtube-context-menu.png" alt="NotionLearner context menu on YouTube" width="440"> | <img src="docs/images/pdf-research-paper.png" alt="Research paper action on an Adobe PDF viewer tab" width="440"> |
+
+### Choose the workflow and local models
+
+| Save, summarize, explain, or analyze a paper | Select the local Ollama model |
+|---|---|
+| <img src="docs/images/extension-popup.png" alt="NotionLearner popup actions and live job status" width="390"> | <img src="docs/images/model-picker.png" alt="NotionLearner local model picker" width="390"> |
+
+### Monitor local processing
+
+<p align="center">
+  <img src="docs/images/dashboard.png" alt="NotionLearner dashboard showing Ollama, RAM, models, and jobs" width="900">
+</p>
 
 ## Supported sources and websites
 

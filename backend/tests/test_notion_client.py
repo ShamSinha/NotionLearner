@@ -8,13 +8,38 @@ os.environ.setdefault("API_SECRET", "test")
 
 from services.llm_processor import LearningAnalysis
 from services.notion_client import (
+    _apply_analysis_properties,
     _analysis_blocks,
+    _summary_preview,
     create_learning_item,
     find_learning_item_by_url,
 )
 
 
 class NotionOutputTests(unittest.TestCase):
+    def test_ai_summary_column_prefers_short_thesis(self):
+        analysis = LearningAnalysis(
+            summary="A much more detailed summary that belongs inside the page body.",
+            category="Machine Learning",
+            domain="AI",
+            subtopic="World models",
+            difficulty="intermediate",
+            estimated_time_minutes=30,
+            thesis="World models help agents predict abstract future states.",
+        )
+        properties = {}
+
+        _apply_analysis_properties(properties, analysis, {"AI Summary"})
+
+        content = properties["AI Summary"]["rich_text"][0]["text"]["content"]
+        self.assertEqual(content, analysis.thesis)
+
+    def test_ai_summary_fallback_is_capped(self):
+        preview = _summary_preview("word " * 100)
+
+        self.assertLessEqual(len(preview), 240)
+        self.assertTrue(preview.endswith("…"))
+
     def test_raw_source_is_not_appended_by_default(self):
         client = MagicMock()
         client.pages.create.return_value = {"id": "page-123"}
